@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UniPrint 3D - Instant Quote</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <!-- Three.js and add-ons (STLLoader, OrbitControls) -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        'uni-bg': '#F5F4F0',
+                        'uni-orange': '#F95C19',
+                        'uni-black': '#1A1A1A'
+                    },
+                    boxShadow: {
+                        'brutal': '6px 6px 0px 0px rgba(26,26,26,1)',
+                        'brutal-sm': '4px 4px 0px 0px rgba(26,26,26,1)',
+                        'brutal-active': '2px 2px 0px 0px rgba(26,26,26,1)',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F5F4F0;
+            color: #1A1A1A;
+        }
+        
+        /* Brutalist Button Styles */
+        .btn-brutal {
+            transition: all 0.1s ease-in-out;
+        }
+        .btn-brutal:active {
+            transform: translate(4px, 4px);
+            box-shadow: 2px 2px 0px 0px rgba(26,26,26,1) !important;
+        }
+        
+        /* Custom File Input Styling */
+        input[type="file"]::file-selector-button {
+            border: 3px solid #1A1A1A;
+            background-color: #F5F4F0;
+            padding: 0.5rem 1rem;
+            margin-right: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 3px 3px 0px 0px rgba(26,26,26,1);
+            transition: all 0.1s ease;
+        }
+        input[type="file"]::file-selector-button:active {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px 0px rgba(26,26,26,1);
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            outline: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8 flex flex-col font-sans">
+
+    <!-- Header / Logo -->
+    <header class="mb-10 flex flex-col items-start">
+        <div class="flex items-end gap-2">
+            <h1 class="text-5xl md:text-7xl font-black uppercase tracking-tighter text-uni-black leading-none">
+                UniPrint
+            </h1>
+            <div class="bg-uni-orange border-[4px] border-uni-black px-2 pb-1 shadow-brutal-sm">
+                <span class="text-4xl md:text-6xl font-black text-uni-black leading-none uppercase tracking-tighter">3D</span>
+            </div>
+        </div>
+        <p class="text-uni-orange font-bold tracking-widest uppercase mt-4 text-sm md:text-base">3D Printing for Students</p>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="grid grid-cols-1 lg:grid-cols-12 gap-8 max-w-7xl">
+        
+        <!-- Left Column: Controls & Upload (7 cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-6">
+            
+            <div class="bg-white border-4 border-uni-black p-6 md:p-8 shadow-brutal flex flex-col gap-4">
+                <h2 class="text-3xl font-black uppercase">1. Upload Model</h2>
+                <p class="text-gray-600 font-medium">Select an STL file to instantly calculate volume and price. Everything is calculated locally on your device.</p>
+                
+                <div class="mt-2 border-4 border-dashed border-uni-black p-6 bg-uni-bg group hover:bg-orange-50 transition-colors relative">
+                    <input type="file" id="stl-upload" accept=".stl" class="w-full font-bold cursor-pointer file:font-sans">
+                </div>
+
+                <!-- Error Message Container -->
+                <div id="error-msg" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 font-bold mt-2">
+                    Error loading file. Please ensure it is a valid ASCII or Binary STL.
+                </div>
+            </div>
+
+            <div class="bg-white border-4 border-uni-black p-6 md:p-8 shadow-brutal flex flex-col gap-4">
+                <h2 class="text-3xl font-black uppercase">2. Select Material</h2>
+                
+                <label for="material-select" class="font-bold text-lg">Filament Type:</label>
+                <select id="material-select" class="w-full border-4 border-uni-black bg-uni-bg p-3 font-bold text-lg cursor-pointer focus:outline-none focus:ring-4 focus:ring-uni-orange/50 appearance-none shadow-brutal-sm">
+                    <option value="1.5">PLA - Standard (1.5 kr / cm³)</option>
+                    <option value="2.5">PETG - Durable (2.5 kr / cm³)</option>
+                    <option value="2.5">ASA - UV Resistant (2.5 kr / cm³)</option>
+                    <option value="4.0">PC - High Strength (4.0 kr / cm³)</option>
+                </select>
+                <div class="pointer-events-none absolute right-[10%] mt-[3.1rem] md:right-[40%] flex items-center px-2 text-uni-black">
+                    <!-- Custom Arrow for select -->
+                    <svg class="fill-current h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                </div>
+                
+                <p class="text-sm font-bold text-gray-500 mt-2">* Base setup fee of 40 kr is applied to all orders.</p>
+            </div>
+
+        </div>
+
+        <!-- Right Column: 3D Preview & Price (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- 3D Canvas -->
+            <div class="bg-white border-4 border-uni-black shadow-brutal h-[300px] md:h-[400px] relative overflow-hidden flex flex-col">
+                <div class="bg-uni-black text-white px-4 py-2 font-bold flex justify-between items-center border-b-4 border-uni-black">
+                    <span>3D PREVIEW</span>
+                    <span class="text-xs text-gray-300">Drag to rotate • Scroll to zoom</span>
+                </div>
+                <div id="canvas-container" class="flex-grow bg-[#e5e5e5] relative cursor-move">
+                    <!-- Overlay when no file -->
+                    <div id="no-file-overlay" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <span class="font-black text-2xl text-gray-400 uppercase">Awaiting Model</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quote Results -->
+            <div class="bg-uni-orange border-4 border-uni-black p-6 md:p-8 shadow-brutal flex flex-col gap-4">
+                <h2 class="text-3xl font-black uppercase text-uni-black">Your Quote</h2>
+                
+                <div class="flex flex-col gap-2 font-bold text-lg">
+                    <div class="flex justify-between border-b-2 border-uni-black/20 pb-1">
+                        <span>Dimensions:</span>
+                        <span id="res-dims" class="font-black">0 x 0 x 0 mm</span>
+                    </div>
+                    <div class="flex justify-between border-b-2 border-uni-black/20 pb-1">
+                        <span>Volume:</span>
+                        <span id="res-vol" class="font-black">0 cm³</span>
+                    </div>
+                    <div class="flex justify-between border-b-2 border-uni-black/20 pb-1">
+                        <span>Base Fee:</span>
+                        <span class="font-black">40.00 kr</span>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-end mt-4">
+                    <span class="text-xl font-bold uppercase">Total Price:</span>
+                    <span id="res-price" class="text-5xl font-black leading-none">0 kr</span>
+                </div>
+
+                <button id="order-btn" class="btn-brutal mt-4 w-full bg-white border-4 border-uni-black p-4 font-black text-2xl uppercase tracking-wider text-uni-black shadow-brutal hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Order Now &rarr;
+                </button>
+            </div>
+            
+        </div>
+    </main>
+
+    <!-- Application Logic -->
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('stl-upload');
+        const materialSelect = document.getElementById('material-select');
+        const container = document.getElementById('canvas-container');
+        const noFileOverlay = document.getElementById('no-file-overlay');
+        const errorMsg = document.getElementById('error-msg');
+        
+        const resDims = document.getElementById('res-dims');
+        const resVol = document.getElementById('res-vol');
+        const resPrice = document.getElementById('res-price');
+        const orderBtn = document.getElementById('order-btn');
+
+        // State
+        let currentVolumeCm3 = 0;
+        const BASE_FEE = 40.0; // SEK
+
+        // Three.js Setup
+        let scene, camera, renderer, controls, currentMesh;
+
+        function initThreeJS() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color('#e5e5e5'); // Match Tailwind color
+
+            // Camera setup
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 10000);
+            camera.position.set(100, 100, 100);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Controls setup
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Lighting (Neo-brutalist harsh lighting)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(200, 500, 300);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+            
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+            dirLight2.position.set(-200, -200, -300);
+            scene.add(dirLight2);
+
+            // Grid helper for scale reference
+            const gridHelper = new THREE.GridHelper(200, 20, 0x1a1a1a, 0x999999);
+            gridHelper.position.y = 0;
+            scene.add(gridHelper);
+
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function onWindowResize() {
+            if (!container) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // Initialize 3D Engine on load
+        window.onload = initThreeJS;
+
+        // --- Core Logic: STL Parsing & Calculations ---
+
+        // Function to calculate volume of a BufferGeometry (assuming it represents a closed solid)
+        function calculateVolume(geometry) {
+            if (!geometry.isBufferGeometry) return 0;
+            
+            let position = geometry.attributes.position;
+            let faces = position.count / 3;
+            let sum = 0;
+            
+            let p1 = new THREE.Vector3();
+            let p2 = new THREE.Vector3();
+            let p3 = new THREE.Vector3();
+
+            for (let i = 0; i < faces; i++) {
+                p1.fromBufferAttribute(position, i * 3 + 0);
+                p2.fromBufferAttribute(position, i * 3 + 1);
+                p3.fromBufferAttribute(position, i * 3 + 2);
+                
+                // Signed volume of tetrahedron from origin
+                sum += p1.dot(p2.cross(p3)) / 6.0;
+            }
+            
+            // Return absolute volume in original units (mm³)
+            return Math.abs(sum);
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            errorMsg.classList.add('hidden');
+            noFileOverlay.classList.add('hidden');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const contents = e.target.result;
+                try {
+                    const loader = new THREE.STLLoader();
+                    const geometry = loader.parse(contents);
+
+                    // Remove old mesh if exists
+                    if (currentMesh) {
+                        scene.remove(currentMesh);
+                        currentMesh.geometry.dispose();
+                        currentMesh.material.dispose();
+                    }
+
+                    // Create new mesh with signal orange material + hard shading
+                    const material = new THREE.MeshStandardMaterial({ 
+                        color: 0xF95C19, 
+                        roughness: 0.4, 
+                        metalness: 0.1,
+                        flatShading: true // Gives a slightly retro 3D look
+                    });
+                    currentMesh = new THREE.Mesh(geometry, material);
+                    
+                    // Rotate STL to standard Z-up orientation if needed (Three.js is Y-up)
+                    currentMesh.rotation.x = -Math.PI / 2;
+
+                    scene.add(currentMesh);
+
+                    // Center geometry and adjust camera
+                    geometry.computeBoundingBox();
+                    geometry.computeBoundingSphere();
+                    
+                    const center = geometry.boundingSphere.center;
+                    const radius = geometry.boundingSphere.radius;
+                    
+                    // Offset mesh to center
+                    geometry.translate(-center.x, -center.y, -center.z);
+
+                    // Move camera to fit object
+                    camera.position.set(0, radius * 1.5, radius * 2.5);
+                    camera.lookAt(0,0,0);
+                    controls.target.set(0,0,0);
+
+                    // --- Calculations ---
+                    
+                    // 1. Bounding Box (Dimensions)
+                    const bbox = geometry.boundingBox;
+                    const sizeX = (bbox.max.x - bbox.min.x).toFixed(1);
+                    const sizeY = (bbox.max.y - bbox.min.y).toFixed(1);
+                    const sizeZ = (bbox.max.z - bbox.min.z).toFixed(1);
+                    
+                    // 2. Volume
+                    const volumeMm3 = calculateVolume(geometry);
+                    currentVolumeCm3 = volumeMm3 / 1000; // Convert mm³ to cm³
+
+                    // --- Update UI ---
+                    resDims.innerText = `${sizeX} x ${sizeZ} x ${sizeY} mm`; // Swapped Y/Z for display due to rotation
+                    resVol.innerText = `${currentVolumeCm3.toFixed(2)} cm³`;
+                    
+                    orderBtn.removeAttribute('disabled');
+                    
+                    // Calculate price based on current selection
+                    updatePrice();
+
+                } catch (error) {
+                    console.error(error);
+                    errorMsg.classList.remove('hidden');
+                    resetUI();
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        function updatePrice() {
+            if (currentVolumeCm3 === 0) return;
+
+            const materialPricePerCm3 = parseFloat(materialSelect.value);
+            const totalCost = BASE_FEE + (currentVolumeCm3 * materialPricePerCm3);
+            
+            resPrice.innerText = `${totalCost.toFixed(2)} kr`;
+        }
+
+        function resetUI() {
+            currentVolumeCm3 = 0;
+            resDims.innerText = `0 x 0 x 0 mm`;
+            resVol.innerText = `0 cm³`;
+            resPrice.innerText = `0 kr`;
+            orderBtn.setAttribute('disabled', 'true');
+            if(currentMesh) {
+                scene.remove(currentMesh);
+                currentMesh = null;
+            }
+            noFileOverlay.classList.remove('hidden');
+        }
+
+        // Event Listeners
+        fileInput.addEventListener('change', handleFileUpload);
+        materialSelect.addEventListener('change', updatePrice);
+
+        // Dummy order handler (Since logic is client side)
+        orderBtn.addEventListener('click', () => {
+            const fileName = fileInput.files[0]?.name;
+            const price = resPrice.innerText;
+            const materialName = materialSelect.options[materialSelect.selectedIndex].text.split(' -')[0];
+            
+            // In a real app, this is where you'd trigger a Mailto link, Formspree API, or Stripe checkout
+            // Example Mailto implementation:
+            const subject = encodeURIComponent(`3D Print Order: ${fileName}`);
+            const body = encodeURIComponent(`Hi UniPrint3D!\n\nI would like to order a print.\n\nFile: ${fileName}\nMaterial: ${materialName}\nVolume: ${currentVolumeCm3.toFixed(2)} cm³\nEstimated Price: ${price}\n\n(I will attach the STL file in this email)`);
+            
+            window.location.href = `mailto:hello@uniprint3d.se?subject=${subject}&body=${body}`;
+        });
+
+    </script>
+</body>
+</html>
