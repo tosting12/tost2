@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UNiPRiNT3D — Ide till Verklighet | Direktpris på 3D-utskrifter</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter & Space Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- Three.js + OrbitControls + STLLoader -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Arial Black', 'sans-serif'],
+                        mono: ['Space Mono', 'monospace'],
+                    },
+                    colors: {
+                        'uni-bg': '#F7F5F0',
+                        'uni-orange': '#FF5500',
+                        'uni-black': '#111111',
+                        'uni-cream': '#EFECE4'
+                    },
+                    boxShadow: {
+                        'brutal': '6px 6px 0px 0px #111111',
+                        'brutal-lg': '8px 8px 0px 0px #111111',
+                        'brutal-sm': '4px 4px 0px 0px #111111',
+                        'brutal-xs': '2px 2px 0px 0px #111111',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #F7F5F0;
+            color: #111111;
+        }
+
+        /* Neo-brutalistiska knappar */
+        .btn-brutal {
+            transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+        }
+        .btn-brutal:hover:not(:disabled) {
+            transform: translate(-1px, -1px);
+            box-shadow: 7px 7px 0px 0px #111111;
+        }
+        .btn-brutal:active:not(:disabled) {
+            transform: translate(4px, 4px);
+            box-shadow: 2px 2px 0px 0px #111111 !important;
+        }
+
+        .btn-brutal-sm {
+            transition: transform 0.1s ease, box-shadow 0.1s ease;
+        }
+        .btn-brutal-sm:active:not(:disabled) {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px 0px #111111 !important;
+        }
+
+        /* =========================================================
+           UNiPRiNT3D LOGOTYP - EXAKT TVÅNIVÅ-TYPOGRAFI
+           Stora tecken (100% höjd): U, P, 3, D
+           Lägre versaler (72% höjd på samma baslinje): N, R, N, T
+           Speciella 'i': stapel exakt 72% höjd + prick i nivå med 100%
+           ========================================================= */
+        .uniprint-logo {
+            display: inline-flex;
+            align-items: baseline;
+            font-family: 'Inter', 'Arial Black', sans-serif;
+            font-weight: 900;
+            letter-spacing: -0.055em;
+            line-height: 0.82;
+            user-select: none;
+            position: relative;
+        }
+        .uniprint-logo .char-tall {
+            font-size: 1em;
+            display: inline-block;
+            line-height: 0.82;
+        }
+        .uniprint-logo .char-short {
+            font-size: 0.72em;
+            display: inline-block;
+            line-height: 0.82;
+            transform: scaleX(1.06);
+            transform-origin: bottom center;
+            margin: 0 0.005em;
+        }
+        /* Konstruerat 'i' där stapeln har exakt samma höjd som N, R, N, T (72%)
+           och pricken ligger ovanför och linjerar med toppen av U, P, 3, D */
+        .uniprint-logo .char-i-wrap {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            height: 0.735em;
+            width: 0.24em;
+            margin: 0 0.015em;
+            position: relative;
+            vertical-align: baseline;
+        }
+        .uniprint-logo .char-i-dot {
+            width: 0.165em;
+            height: 0.145em;
+            background-color: currentColor;
+            position: absolute;
+            top: 0.01em;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .uniprint-logo .char-i-stem {
+            width: 0.165em;
+            height: 0.525em;
+            background-color: currentColor;
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Anpassad range-slider i brutalistisk stil */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 14px;
+            background: #EFECE4;
+            border: 3px solid #111111;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 26px;
+            height: 26px;
+            background: #FF5500;
+            border: 3px solid #111111;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #111111;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 26px;
+            height: 26px;
+            background: #FF5500;
+            border: 3px solid #111111;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #111111;
+        }
+
+        #canvas-container canvas {
+            display: block;
+            width: 100% !important;
+            height: 100% !important;
+            outline: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans selection:bg-uni-orange selection:text-white">
+
+    <!-- Toppbanner -->
+    <div class="bg-uni-black text-uni-bg border-b-4 border-uni-black py-2 px-4 text-xs md:text-sm font-mono font-bold tracking-wider uppercase flex flex-wrap justify-between items-center gap-2">
+        <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 bg-uni-orange"></span>
+            <span>SNABB TILLVERKNING I SVERIGE • BYGGVOLYM 250 × 250 × 250 MM</span>
+        </div>
+        <div class="hidden sm:flex items-center gap-4">
+            <span>PLA • PETG • ASA • PC</span>
+            <span class="text-uni-orange">DIREKTPRIS I WEBBLÄSAREN</span>
+        </div>
+    </div>
+
+    <!-- Header med ny UNiPRiNT3D-logotyp och slogan -->
+    <header class="border-b-4 border-uni-black bg-uni-bg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 md:px-8 py-4 md:py-5 flex flex-wrap justify-between items-center gap-4">
+            
+            <!-- Logotyp + Slogan -->
+            <a href="#" class="group flex flex-col items-start focus:outline-none">
+                <div class="uniprint-logo text-4xl sm:text-5xl md:text-6xl text-uni-black" aria-label="UNiPRiNT3D">
+                    <span class="char-tall">U</span><span class="char-short">N</span><span class="char-i-wrap" aria-hidden="true"><span class="char-i-dot"></span><span class="char-i-stem"></span></span><span class="sr-only">i</span><span class="char-tall">P</span><span class="char-short">R</span><span class="char-i-wrap" aria-hidden="true"><span class="char-i-dot"></span><span class="char-i-stem"></span></span><span class="sr-only">i</span><span class="char-short">N</span><span class="char-short">T</span><span class="char-tall text-uni-orange">3</span><span class="char-tall">D</span>
+                </div>
+                <div class="flex items-center gap-2 mt-1.5">
+                    <span class="bg-uni-orange border-2 border-uni-black px-2 py-0.5 text-xs md:text-sm font-black uppercase tracking-widest text-uni-black shadow-brutal-xs">
+                        Ide till Verklighet
+                    </span>
+                    <span class="text-xs font-mono font-bold uppercase text-neutral-600 hidden sm:inline">
+                        // 3D-utskrifter på beställning
+                    </span>
+                </div>
+            </a>
+
+            <!-- Snabbknappar i headern -->
+            <div class="flex items-center gap-3">
+                <button id="header-demo-btn" type="button" class="btn-brutal-sm bg-white border-3 border-uni-black px-3.5 py-2 text-xs md:text-sm font-black uppercase shadow-brutal-sm hover:bg-uni-cream">
+                    Testa med demofil
+                </button>
+                <a href="#kalkylator" class="btn-brutal-sm bg-uni-orange border-3 border-uni-black px-4 py-2 text-xs md:text-sm font-black uppercase text-uni-black shadow-brutal-sm">
+                    Ladda upp STL &rarr;
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero-sektion -->
+    <section class="max-w-7xl mx-auto w-full px-4 md:px-8 pt-8 pb-6">
+        <div class="bg-white border-4 border-uni-black p-6 md:p-8 shadow-brutal flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div class="max-w-2xl">
+                <div class="inline-block bg-uni-black text-white font-mono text-xs font-bold uppercase px-3 py-1 mb-3">
+                    UNiPRiNT3D • IDE TILL VERKLIGHET
+                </div>
+                <h1 class="text-3xl sm:text-5xl font-black tracking-tight text-uni-black leading-none uppercase">
+                    Från CAD-fil till färdig del. <span class="text-uni-orange underline decoration-4 underline-offset-4">Direktpris.</span>
+                </h1>
+                <p class="mt-3 text-base md:text-lg font-medium text-neutral-700">
+                    Ladda upp din <span class="font-mono font-bold text-uni-black">.STL</span>-fil för att direkt beräkna volym, ytarea, vikt och pris. Modellen placeras automatiskt i mitten av vår <span class="font-bold text-uni-black">250 × 250 × 250 mm</span> byggvolym.
+                </p>
+            </div>
+
+            <!-- 3 snabba steg -->
+            <div class="grid grid-cols-3 gap-2 sm:gap-3 w-full lg:w-auto shrink-0">
+                <div class="bg-uni-bg border-3 border-uni-black p-3 shadow-brutal-xs">
+                    <span class="font-mono text-xs font-bold text-uni-orange block">STEG 01</span>
+                    <span class="font-black text-sm md:text-base uppercase block mt-0.5">Ladda upp STL</span>
+                </div>
+                <div class="bg-uni-bg border-3 border-uni-black p-3 shadow-brutal-xs">
+                    <span class="font-mono text-xs font-bold text-uni-orange block">STEG 02</span>
+                    <span class="font-black text-sm md:text-base uppercase block mt-0.5">Välj material</span>
+                </div>
+                <div class="bg-uni-bg border-3 border-uni-black p-3 shadow-brutal-xs">
+                    <span class="font-mono text-xs font-bold text-uni-orange block">STEG 03</span>
+                    <span class="font-black text-sm md:text-base uppercase block mt-0.5">Beställ direkt</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Huvudkalkylator -->
+    <main id="kalkylator" class="max-w-7xl mx-auto w-full px-4 md:px-8 pb-16 flex-grow">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+            <!-- VÄNSTER KOLUMN: 3D-Förhandsgranskning med 250 mm kub & Filuppladdning (7 kolumner) -->
+            <div class="lg:col-span-7 flex flex-col gap-6">
+
+                <!-- 1. Ladda upp STL-fil -->
+                <div class="bg-white border-4 border-uni-black p-5 md:p-6 shadow-brutal">
+                    <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                        <h2 class="text-xl md:text-2xl font-black uppercase flex items-center gap-2">
+                            <span class="bg-uni-black text-white px-2.5 py-0.5 font-mono text-base">1</span>
+                            Ladda upp 3D-modell (.STL)
+                        </h2>
+                        <div class="flex items-center gap-2">
+                            <button type="button" id="load-bracket-btn" class="btn-brutal-sm bg-uni-bg border-2 border-uni-black px-3 py-1 text-xs font-black uppercase shadow-brutal-xs hover:bg-uni-orange hover:text-black">
+                                Demodel: Fäste
+                            </button>
+                            <button type="button" id="load-gear-btn" class="btn-brutal-sm bg-uni-bg border-2 border-uni-black px-3 py-1 text-xs font-black uppercase shadow-brutal-xs hover:bg-uni-orange hover:text-black">
+                                Demodel: Testkub 60mm
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dropzone -->
+                    <label for="stl-upload" id="dropzone" class="block border-4 border-dashed border-uni-black bg-uni-bg hover:bg-orange-50 transition-colors p-5 md:p-6 cursor-pointer text-center">
+                        <input type="file" id="stl-upload" accept=".stl" class="hidden">
+                        <div class="flex flex-col items-center justify-center gap-2">
+                            <div class="w-12 h-12 bg-uni-orange border-3 border-uni-black shadow-brutal-xs flex items-center justify-center font-black text-2xl">
+                                &uarr;
+                            </div>
+                            <p class="font-black text-base md:text-lg uppercase mt-1">
+                                Dra och släpp din STL-fil här, eller <span class="underline text-uni-orange">välj fil från datorn</span>
+                            </p>
+                            <p id="active-filename" class="font-mono text-xs md:text-sm font-bold text-neutral-600">
+                                Aktiv modell: Demomodell (Monteringsfäste.stl) • Beräknas lokalt i din webbläsare
+                            </p>
+                        </div>
+                    </label>
+
+                    <!-- Felmeddelande vid ogiltig fil -->
+                    <div id="error-msg" class="hidden mt-4 bg-red-100 border-4 border-uni-black p-4 font-bold text-red-900 shadow-brutal-xs">
+                        Kunde inte läsa filen. Kontrollera att du har valt en giltig binär eller ASCII .STL-fil.
+                    </div>
+
+                    <!-- Varning om modellen överskrider 250x250x250 mm -->
+                    <div id="size-warning" class="hidden mt-4 bg-red-600 text-white border-4 border-uni-black p-4 shadow-brutal-sm">
+                        <div class="flex items-start gap-3">
+                            <span class="font-mono font-black text-2xl leading-none">!</span>
+                            <div>
+                                <p class="font-black uppercase text-base">Modellen överskrider maxvolymen 250 × 250 × 250 mm!</p>
+                                <p class="text-sm font-medium mt-0.5">
+                                    En eller flera sidor är längre än 250 mm. Skala ned modellen i ditt CAD-program eller kontakta oss för uppdelad utskrift.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. 3D-Preview med 250 x 250 x 250 mm kub -->
+                <div class="bg-white border-4 border-uni-black shadow-brutal flex flex-col">
+                    <!-- Topplist för 3D-vy -->
+                    <div class="bg-uni-black text-white px-4 py-3 flex flex-wrap justify-between items-center gap-2 border-b-4 border-uni-black">
+                        <div class="flex items-center gap-2.5">
+                            <span class="inline-block w-3 h-3 bg-uni-orange border border-white"></span>
+                            <span class="font-black uppercase tracking-wider text-sm md:text-base">3D-Förhandsgranskning</span>
+                            <span id="cube-status-badge" class="bg-uni-orange text-uni-black font-mono text-xs font-bold px-2 py-0.5 uppercase">
+                                Kub: 250 × 250 × 250 mm
+                            </span>
+                        </div>
+                        <span class="font-mono text-xs text-neutral-300">
+                            Centrerad i kubens mitt (0, 0, 0) • Dra för att rotera
+                        </span>
+                    </div>
+
+                    <!-- Canvas-behållare -->
+                    <div id="canvas-container" class="h-[360px] sm:h-[440px] bg-[#E8E5DC] relative cursor-grab active:cursor-grabbing overflow-hidden">
+                        <!-- Info-etikett uppe till vänster i 3D-vyn -->
+                        <div class="absolute top-3 left-3 z-10 pointer-events-none flex flex-col gap-1">
+                            <div class="bg-white/95 border-2 border-uni-black px-2.5 py-1 shadow-brutal-xs font-mono text-xs font-bold">
+                                Ytterkub: <span class="text-uni-orange">250 × 250 × 250 mm</span>
+                            </div>
+                            <div id="preview-dims-pill" class="bg-uni-black/90 text-white px-2.5 py-1 font-mono text-xs font-bold">
+                                Modell: 0 × 0 × 0 mm (i mitten)
+                            </div>
+                        </div>
+
+                        <!-- Vyer / Kameraknappar uppe till höger i 3D-vyn -->
+                        <div class="absolute top-3 right-3 z-10 flex flex-wrap gap-1.5 justify-end">
+                            <button type="button" id="view-cube-btn" class="btn-brutal-sm bg-white border-2 border-uni-black px-2.5 py-1 font-mono text-xs font-bold uppercase shadow-brutal-xs hover:bg-uni-orange">
+                                Visa 250mm-kub
+                            </button>
+                            <button type="button" id="view-model-btn" class="btn-brutal-sm bg-white border-2 border-uni-black px-2.5 py-1 font-mono text-xs font-bold uppercase shadow-brutal-xs hover:bg-uni-orange">
+                                Zooma modell
+                            </button>
+                            <button type="button" id="toggle-wireframe-btn" class="btn-brutal-sm bg-white border-2 border-uni-black px-2.5 py-1 font-mono text-xs font-bold uppercase shadow-brutal-xs hover:bg-uni-orange">
+                                Trådram
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Verktygsfält under 3D-vyn: Rotera modellen (alltid i mitten av 250mm-kuben) -->
+                    <div class="bg-uni-bg border-t-4 border-uni-black px-4 py-3 flex flex-wrap justify-between items-center gap-3">
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="font-mono text-xs font-bold uppercase mr-1">Rotera i kuben:</span>
+                            <button type="button" id="rot-x-btn" class="btn-brutal-sm bg-white border-2 border-uni-black px-2.5 py-1 font-mono text-xs font-bold shadow-brutal-xs hover:bg-uni-orange">
+                                X +90°
+                            </button>
+                            <button type="button" id="rot-y-btn" class="btn-brutal-sm bg-white border-2 border-uni-black px-2.5 py-1 font-mono text-xs font-bold shadow-brutal-xs hover:bg-uni-orange">
+                                Y +90°
+                            </button>
+                            <button type="button" id="rot-z-btn" class="btn-brutal-sm bg-white border-2 border-uni-black px-2.5 py-1 font-mono text-xs font-bold shadow-brutal-xs hover:bg-uni-orange">
+                                Z +90°
+                            </button>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="font-mono text-xs font-bold uppercase">Enhet i STL:</span>
+                            <select id="unit-select" class="bg-white border-2 border-uni-black px-2 py-1 font-mono text-xs font-bold shadow-brutal-xs cursor-pointer">
+                                <option value="1" selected>Millimeter (mm)</option>
+                                <option value="10">Centimeter (cm &rarr; mm)</option>
+                                <option value="25.4">Tum (inch &rarr; mm)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Geometrisk analys (kort under 3D-vyn) -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="bg-white border-4 border-uni-black p-4 shadow-brutal-sm">
+                        <span class="font-mono text-xs font-bold uppercase text-neutral-500 block">Dimensioner (mm)</span>
+                        <span id="stat-dims" class="font-black text-base md:text-lg block mt-1">0 × 0 × 0</span>
+                    </div>
+                    <div class="bg-white border-4 border-uni-black p-4 shadow-brutal-sm">
+                        <span class="font-mono text-xs font-bold uppercase text-neutral-500 block">Modellvolym</span>
+                        <span id="stat-vol" class="font-black text-base md:text-lg block mt-1">0.00 cm³</span>
+                    </div>
+                    <div class="bg-white border-4 border-uni-black p-4 shadow-brutal-sm">
+                        <span class="font-mono text-xs font-bold uppercase text-neutral-500 block">Ytarea</span>
+                        <span id="stat-area" class="font-black text-base md:text-lg block mt-1">0.00 cm²</span>
+                    </div>
+                    <div class="bg-white border-4 border-uni-black p-4 shadow-brutal-sm">
+                        <span class="font-mono text-xs font-bold uppercase text-neutral-500 block">Beräknad vikt</span>
+                        <span id="stat-weight" class="font-black text-base md:text-lg text-uni-orange block mt-1">0 g</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- HÖGER KOLUMN: Utskriftsval & Prisberäkning (5 kolumner) -->
+            <div class="lg:col-span-5 flex flex-col gap-6">
+
+                <!-- Utskriftsparametrar -->
+                <div class="bg-white border-4 border-uni-black p-5 md:p-6 shadow-brutal flex flex-col gap-5">
+                    <h2 class="text-xl md:text-2xl font-black uppercase flex items-center gap-2">
+                        <span class="bg-uni-black text-white px-2.5 py-0.5 font-mono text-base">2</span>
+                        Välj material & utförande
+                    </h2>
+
+                    <!-- Materialval -->
+                    <div>
+                        <label class="font-black text-sm uppercase tracking-wider block mb-2">Material (Filament):</label>
+                        <div class="grid grid-cols-2 gap-2.5" id="material-cards">
+                            <button type="button" data-mat="PLA" class="mat-btn border-3 border-uni-black p-3 text-left bg-uni-orange shadow-brutal-xs transition-all">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-black text-base">PLA</span>
+                                    <span class="font-mono text-xs font-bold bg-uni-black text-white px-1.5 py-0.5">1.50 kr/cm³</span>
+                                </div>
+                                <p class="text-xs font-bold mt-1 text-uni-black/90">Standard, snygg yta &amp; prototyper</p>
+                            </button>
+
+                            <button type="button" data-mat="PETG" class="mat-btn border-3 border-uni-black p-3 text-left bg-uni-bg hover:bg-uni-cream shadow-brutal-xs transition-all">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-black text-base">PETG</span>
+                                    <span class="font-mono text-xs font-bold bg-uni-black text-white px-1.5 py-0.5">2.10 kr/cm³</span>
+                                </div>
+                                <p class="text-xs font-bold mt-1 text-neutral-700">Slagtåligt, mekaniska delar</p>
+                            </button>
+
+                            <button type="button" data-mat="ASA" class="mat-btn border-3 border-uni-black p-3 text-left bg-uni-bg hover:bg-uni-cream shadow-brutal-xs transition-all">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-black text-base">ASA</span>
+                                    <span class="font-mono text-xs font-bold bg-uni-black text-white px-1.5 py-0.5">2.60 kr/cm³</span>
+                                </div>
+                                <p class="text-xs font-bold mt-1 text-neutral-700">UV- &amp; väderbeständigt, utomhus</p>
+                            </button>
+
+                            <button type="button" data-mat="PC" class="mat-btn border-3 border-uni-black p-3 text-left bg-uni-bg hover:bg-uni-cream shadow-brutal-xs transition-all">
+                                <div class="flex justify-between items-center">
+                                    <span class="font-black text-base">PC</span>
+                                    <span class="font-mono text-xs font-bold bg-uni-black text-white px-1.5 py-0.5">3.80 kr/cm³</span>
+                                </div>
+                                <p class="text-xs font-bold mt-1 text-neutral-700">Polykarbonat, extrem styrka</p>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Färgval -->
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="font-black text-sm uppercase tracking-wider">Färg på utskrift:</label>
+                            <span id="selected-color-name" class="font-mono text-xs font-bold uppercase text-uni-orange">Signalorange</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2.5" id="color-swatches">
+                            <button type="button" data-color="#FF5500" data-name="Signalorange" class="color-btn w-9 h-9 bg-[#FF5500] border-3 border-uni-black ring-2 ring-offset-2 ring-uni-black shadow-brutal-xs" title="Signalorange"></button>
+                            <button type="button" data-color="#1A1A1A" data-name="Kolsvart" class="color-btn w-9 h-9 bg-[#1A1A1A] border-3 border-uni-black shadow-brutal-xs" title="Kolsvart"></button>
+                            <button type="button" data-color="#F5F5F5" data-name="Kritvit" class="color-btn w-9 h-9 bg-[#F5F5F5] border-3 border-uni-black shadow-brutal-xs" title="Kritvit"></button>
+                            <button type="button" data-color="#6B7280" data-name="Industriell Grå" class="color-btn w-9 h-9 bg-[#6B7280] border-3 border-uni-black shadow-brutal-xs" title="Industriell Grå"></button>
+                            <button type="button" data-color="#DC2626" data-name="Karmosinröd" class="color-btn w-9 h-9 bg-[#DC2626] border-3 border-uni-black shadow-brutal-xs" title="Karmosinröd"></button>
+                            <button type="button" data-color="#2563EB" data-name="Koboltblå" class="color-btn w-9 h-9 bg-[#2563EB] border-3 border-uni-black shadow-brutal-xs" title="Koboltblå"></button>
+                        </div>
+                    </div>
+
+                    <!-- Infill (Fyllnadsgrad) -->
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <label for="infill-slider" class="font-black text-sm uppercase tracking-wider">Fyllnadsgrad (Infill):</label>
+                            <span id="infill-label" class="font-mono text-sm font-bold bg-uni-black text-white px-2 py-0.5">20% (Standard)</span>
+                        </div>
+                        <input type="range" id="infill-slider" min="15" max="100" step="5" value="20">
+                        <div class="flex justify-between font-mono text-[11px] font-bold text-neutral-500 mt-1">
+                            <span>15% Lätt</span>
+                            <span>40% Stark</span>
+                            <span>100% Solid</span>
+                        </div>
+                    </div>
+
+                    <!-- Lagerhöjd & Antal -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="layer-select" class="font-black text-sm uppercase tracking-wider block mb-1.5">Lagerhöjd:</label>
+                            <select id="layer-select" class="w-full bg-uni-bg border-3 border-uni-black p-2.5 font-bold text-sm shadow-brutal-xs cursor-pointer focus:outline-none">
+                                <option value="1.25">0.12 mm — Extra fin detalj (+25%)</option>
+                                <option value="1.0" selected>0.20 mm — Standard (Rekommenderas)</option>
+                                <option value="0.9">0.28 mm — Snabb/Grov (-10%)</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="font-black text-sm uppercase tracking-wider block mb-1.5">Antal exemplar:</label>
+                            <div class="flex items-center">
+                                <button type="button" id="qty-minus" class="btn-brutal-sm bg-uni-bg border-3 border-uni-black px-3.5 py-2 font-black text-base shadow-brutal-xs">-</button>
+                                <input type="number" id="qty-input" value="1" min="1" max="500" class="w-full text-center border-y-3 border-uni-black py-2 font-mono font-black text-base bg-white focus:outline-none">
+                                <button type="button" id="qty-plus" class="btn-brutal-sm bg-uni-bg border-3 border-uni-black px-3.5 py-2 font-black text-base shadow-brutal-xs">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Priskort / Sammanställning -->
+                <div class="bg-uni-orange border-4 border-uni-black p-6 shadow-brutal flex flex-col gap-4">
+                    <div class="flex justify-between items-center border-b-4 border-uni-black pb-3">
+                        <div>
+                            <span class="font-mono text-xs font-bold uppercase block">UNiPRiNT3D DIREKTPRIS</span>
+                            <h2 class="text-2xl md:text-3xl font-black uppercase leading-none">Din Offert</h2>
+                        </div>
+                        <span id="discount-badge" class="hidden bg-uni-black text-white font-mono text-xs font-bold px-2.5 py-1 uppercase">
+                            Mängdrabatt aktiv
+                        </span>
+                    </div>
+
+                    <!-- Prisrader -->
+                    <div class="flex flex-col gap-2 font-bold text-sm md:text-base">
+                        <div class="flex justify-between border-b-2 border-uni-black/25 pb-1.5">
+                            <span>Start- &amp; hanteringsavgift:</span>
+                            <span id="quote-base" class="font-mono font-bold">40,00 kr</span>
+                        </div>
+                        <div class="flex justify-between border-b-2 border-uni-black/25 pb-1.5">
+                            <span>Material &amp; maskintid (<span id="quote-qty-label">1 st</span>):</span>
+                            <span id="quote-material" class="font-mono font-bold">0,00 kr</span>
+                        </div>
+                        <div class="flex justify-between border-b-2 border-uni-black/25 pb-1.5 text-uni-black/80 text-xs md:text-sm">
+                            <span>Pris exkl. moms:</span>
+                            <span id="quote-ex-vat" class="font-mono font-bold">0,00 kr</span>
+                        </div>
+                        <div class="flex justify-between border-b-2 border-uni-black/25 pb-1.5 text-uni-black/80 text-xs md:text-sm">
+                            <span>Varav moms (25%):</span>
+                            <span id="quote-vat" class="font-mono font-bold">0,00 kr</span>
+                        </div>
+                    </div>
+
+                    <!-- Totalpris -->
+                    <div class="flex justify-between items-end pt-2">
+                        <div>
+                            <span class="font-mono text-xs font-bold uppercase block">Totalt inkl. 25% moms</span>
+                            <span id="quote-per-unit" class="font-mono text-xs font-bold text-uni-black/80">0,00 kr / st</span>
+                        </div>
+                        <span id="quote-total" class="text-4xl md:text-5xl font-black tracking-tight leading-none">0 kr</span>
+                    </div>
+
+                    <!-- Beställningsknapp -->
+                    <button type="button" id="open-order-modal-btn" class="btn-brutal mt-2 w-full bg-white border-4 border-uni-black p-4 font-black text-xl md:text-2xl uppercase tracking-wider text-uni-black shadow-brutal hover:bg-uni-cream disabled:opacity-50 disabled:cursor-not-allowed">
+                        Beställ utskrift &rarr;
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Beställningsmodal (Ersätter alert, visar sammanfattning + e-post/kopiera) -->
+    <div id="order-modal" class="fixed inset-0 bg-uni-black/70 z-50 hidden items-center justify-center p-4">
+        <div class="bg-uni-bg border-4 border-uni-black shadow-brutal-lg max-w-lg w-full p-6 md:p-8 relative">
+            <button type="button" id="close-modal-btn" class="btn-brutal-sm absolute top-4 right-4 bg-white border-3 border-uni-black w-9 h-9 font-black text-lg shadow-brutal-xs">
+                &times;
+            </button>
+
+            <div class="inline-block bg-uni-orange border-2 border-uni-black px-2.5 py-0.5 font-mono text-xs font-bold uppercase mb-2">
+                UNiPRiNT3D • Ide till Verklighet
+            </div>
+            <h3 class="text-2xl md:text-3xl font-black uppercase">Slutför din beställning</h3>
+            <p class="text-sm font-medium text-neutral-700 mt-1">
+                Granska din specifikation nedan. Vid beställning öppnas ditt e-postprogram med alla uppgifter ifyllda, eller så kan du kopiera sammanfattningen direkt.
+            </p>
+
+            <!-- Sammanfattningsruta -->
+            <pre id="order-summary-box" class="mt-4 bg-white border-3 border-uni-black p-4 font-mono text-xs md:text-sm font-bold whitespace-pre-wrap leading-relaxed shadow-brutal-xs"></pre>
+
+            <div class="mt-4 bg-amber-100 border-3 border-uni-black p-3 text-xs font-bold">
+                OBS: Kom ihåg att bifoga din <span class="font-mono underline">.STL</span>-fil i mejlet innan du klickar på skicka. Betallänk (Swish/Kort) skickas direkt vid orderbekräftelse.
+            </div>
+
+            <!-- Knappar i modal -->
+            <div class="mt-5 flex flex-col sm:flex-row gap-3">
+                <button type="button" id="copy-order-btn" class="btn-brutal-sm flex-1 bg-white border-3 border-uni-black py-3 px-4 font-black text-sm uppercase shadow-brutal-sm">
+                    Kopiera specifikation
+                </button>
+                <a id="mailto-order-link" href="#" class="btn-brutal-sm flex-1 bg-uni-orange border-3 border-uni-black py-3 px-4 font-black text-sm uppercase text-center shadow-brutal-sm">
+                    Skicka via E-post &rarr;
+                </a>
+            </div>
+            <p id="copy-feedback" class="hidden text-center font-mono text-xs font-bold text-green-700 mt-2">
+                Specifikationen har kopierats till urklipp!
+            </p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="border-t-4 border-uni-black bg-white mt-auto">
+        <div class="max-w-7xl mx-auto px-4 md:px-8 py-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="uniprint-logo text-2xl text-uni-black" aria-label="UNiPRiNT3D">
+                    <span class="char-tall">U</span><span class="char-short">N</span><span class="char-i-wrap" aria-hidden="true"><span class="char-i-dot"></span><span class="char-i-stem"></span></span><span class="char-tall">P</span><span class="char-short">R</span><span class="char-i-wrap" aria-hidden="true"><span class="char-i-dot"></span><span class="char-i-stem"></span></span><span class="char-short">N</span><span class="char-short">T</span><span class="char-tall text-uni-orange">3</span><span class="char-tall">D</span>
+                </div>
+                <span class="font-mono text-xs font-bold uppercase text-neutral-600">— Ide till Verklighet</span>
+            </div>
+            <p class="font-mono text-xs font-bold text-neutral-600">
+                Max byggvolym: 250 × 250 × 250 mm • Priser inkl. 25% moms
+            </p>
+        </div>
+    </footer>
+
+    <!-- Applikationslogik & Three.js 3D-motor -->
+    <script>
+        // --- Konstanter & Materialdata ---
+        const BUILD_VOLUME_MM = 250; // 250 x 250 x 250 mm kub
+        const BASE_START_FEE = 40.0; // Startavgift i SEK inkl. moms
+
+        const MATERIALS = {
+            PLA:  { name: 'PLA Standard',       pricePerCm3: 1.50, density: 1.24 },
+            PETG: { name: 'PETG Slagtålig',     pricePerCm3: 2.10, density: 1.27 },
+            ASA:  { name: 'ASA UV-beständig',   pricePerCm3: 2.60, density: 1.07 },
+            PC:   { name: 'PC Polykarbonat',    pricePerCm3: 3.80, density: 1.20 }
+        };
+
+        // --- Tillstånd (State) ---
+        let state = {
+            fileName: 'Monteringsfäste_Demo.stl',
+            material: 'PLA',
+            colorHex: '#FF5500',
+            colorName: 'Signalorange',
+            infillPercent: 20,
+            layerMultiplier: 1.0,
+            layerLabel: '0.20 mm (Standard)',
+            quantity: 1,
+            unitScale: 1.0,
+            rawVolumeMm3: 0,
+            rawAreaMm2: 0,
+            dimsMm: { x: 0, y: 0, z: 0 },
+            exceedsCube: false,
+            wireframe: false
+        };
+
+        // --- DOM-referenser ---
+        const fileInput = document.getElementById('stl-upload');
+        const dropzone = document.getElementById('dropzone');
+        const activeFilenameEl = document.getElementById('active-filename');
+        const errorMsgEl = document.getElementById('error-msg');
+        const sizeWarningEl = document.getElementById('size-warning');
+        const cubeStatusBadge = document.getElementById('cube-status-badge');
+        const previewDimsPill = document.getElementById('preview-dims-pill');
+
+        const statDims = document.getElementById('stat-dims');
+        const statVol = document.getElementById('stat-vol');
+        const statArea = document.getElementById('stat-area');
+        const statWeight = document.getElementById('stat-weight');
+
+        const infillSlider = document.getElementById('infill-slider');
+        const infillLabel = document.getElementById('infill-label');
+        const layerSelect = document.getElementById('layer-select');
+        const qtyInput = document.getElementById('qty-input');
+        const unitSelect = document.getElementById('unit-select');
+
+        const quoteBase = document.getElementById('quote-base');
+        const quoteQtyLabel = document.getElementById('quote-qty-label');
+        const quoteMaterial = document.getElementById('quote-material');
+        const quoteExVat = document.getElementById('quote-ex-vat');
+        const quoteVat = document.getElementById('quote-vat');
+        const quoteTotal = document.getElementById('quote-total');
+        const quotePerUnit = document.getElementById('quote-per-unit');
+        const discountBadge = document.getElementById('discount-badge');
+        const openOrderModalBtn = document.getElementById('open-order-modal-btn');
+
+        // --- Three.js variabler ---
+        const container = document.getElementById('canvas-container');
+        let scene, camera, renderer, controls;
+        let currentMesh = null;
+        let buildCubeLines = null;
+        let buildCubeFill = null;
+
+        // Initiera Three.js med 250 x 250 x 250 mm kub centrerad i origo (0,0,0)
+        function initThreeScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color('#E8E5DC');
+
+            const aspect = container.clientWidth / container.clientHeight;
+            camera = new THREE.PerspectiveCamera(42, aspect, 1, 5000);
+            camera.position.set(340, 260, 380);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.target.set(0, 0, 0);
+
+            // Ljus
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+            scene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.85);
+            dirLight1.position.set(300, 500, 400);
+            scene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.35);
+            dirLight2.position.set(-300, -200, -300);
+            scene.add(dirLight2);
+
+            // --- SKAPA 250 x 250 x 250 MM BYGGVOLYM-KUB CENTRERAD I ORIGO (0, 0, 0) ---
+            const cubeGeo = new THREE.BoxGeometry(BUILD_VOLUME_MM, BUILD_VOLUME_MM, BUILD_VOLUME_MM);
+            const edgesGeo = new THREE.EdgesGeometry(cubeGeo);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 2 });
+            buildCubeLines = new THREE.LineSegments(edgesGeo, lineMat);
+            buildCubeLines.position.set(0, 0, 0);
+            scene.add(buildCubeLines);
+
+            // Diskret halvtransparent fyllning i kuben för rumskänsla
+            const cubeFillMat = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.08,
+                depthWrite: false,
+                side: THREE.BackSide
+            });
+            buildCubeFill = new THREE.Mesh(cubeGeo, cubeFillMat);
+            buildCubeFill.position.set(0, 0, 0);
+            scene.add(buildCubeFill);
+
+            // Rutnät (Grid) i botten av 250 mm-kuben (vid y = -125 mm, 1 ruta = 10 mm)
+            const bottomGrid = new THREE.GridHelper(BUILD_VOLUME_MM, 25, 0xFF5500, 0x99958C);
+            bottomGrid.position.y = -BUILD_VOLUME_MM / 2;
+            scene.add(bottomGrid);
+
+            // Diskret mittkors i origo (0, 0, 0) som visar kubens exakta mittpunkt
+            const centerCrossMat = new THREE.LineBasicMaterial({ color: 0xFF5500, transparent: true, opacity: 0.55 });
+            const crossPoints = [
+                new THREE.Vector3(-20, 0, 0), new THREE.Vector3(20, 0, 0),
+                new THREE.Vector3(0, -20, 0), new THREE.Vector3(0, 20, 0),
+                new THREE.Vector3(0, 0, -20), new THREE.Vector3(0, 0, 20)
+            ];
+            const crossGeo = new THREE.BufferGeometry().setFromPoints(crossPoints);
+            const centerCross = new THREE.LineSegments(crossGeo, centerCrossMat);
+            scene.add(centerCross);
+
+            // Animationsloop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+
+            window.addEventListener('resize', onWindowResize);
+
+            // Ladda en demomodell direkt så att kuben visar en centrerad modell från start
+            loadProceduralBracketDemo();
+        }
+
+        function onWindowResize() {
+            if (!container || !renderer) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // --- Matematisk beräkning av exakt volym (mm³) och ytarea (mm²) ---
+        function computeMeshMetrics(geometry) {
+            const pos = geometry.attributes.position;
+            if (!pos) return { volumeMm3: 0, areaMm2: 0 };
+
+            const faceCount = pos.count / 3;
+            let signedVolume = 0;
+            let totalArea = 0;
+
+            const p1 = new THREE.Vector3();
+            const p2 = new THREE.Vector3();
+            const p3 = new THREE.Vector3();
+            const edge1 = new THREE.Vector3();
+            const edge2 = new THREE.Vector3();
+            const crossVec = new THREE.Vector3();
+
+            for (let i = 0; i < faceCount; i++) {
+                p1.fromBufferAttribute(pos, i * 3 + 0);
+                p2.fromBufferAttribute(pos, i * 3 + 1);
+                p3.fromBufferAttribute(pos, i * 3 + 2);
+
+                // Ytarea av triangel: 0.5 * |(p2 - p1) x (p3 - p1)|
+                edge1.subVectors(p2, p1);
+                edge2.subVectors(p3, p1);
+                crossVec.crossVectors(edge1, edge2);
+                totalArea += 0.5 * crossVec.length();
+
+                // Signerad volym av tetraeder från origo: (p1 . (p2 x p3)) / 6
+                crossVec.crossVectors(p2, p3);
+                signedVolume += p1.dot(crossVec) / 6.0;
+            }
+
+            return {
+                volumeMm3: Math.abs(signedVolume),
+                areaMm2: totalArea
+            };
+        }
+
+        // --- Placera en BufferGeometry exakt i mitten (0,0,0) av 250 mm-kuben ---
+        function setModelGeometry(geometry, fileNameLabel) {
+            errorMsgEl.classList.add('hidden');
+
+            // Säkerställ normaler och centrera geometrin i origo (0, 0, 0) - mitten av 250mm-kuben!
+            geometry.computeVertexNormals();
+            geometry.center();
+
+            if (currentMesh) {
+                scene.remove(currentMesh);
+                currentMesh.geometry.dispose();
+                currentMesh.material.dispose();
+            }
+
+            const material = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(state.colorHex),
+                roughness: 0.38,
+                metalness: 0.08,
+                flatShading: true,
+                wireframe: state.wireframe
+            });
+
+            currentMesh = new THREE.Mesh(geometry, material);
+            // Placera exakt i mitten av 250 x 250 x 250 mm kuben
+            currentMesh.position.set(0, 0, 0);
+            scene.add(currentMesh);
+
+            state.fileName = fileNameLabel;
+            activeFilenameEl.textContent = `Aktiv modell: ${fileNameLabel} • Centrerad i 250 mm-kuben`;
+
+            // Beräkna råvolym och råarea
+            const metrics = computeMeshMetrics(geometry);
+            state.rawVolumeMm3 = metrics.volumeMm3;
+            state.rawAreaMm2 = metrics.areaMm2;
+
+            updateDimensionsAndPrice();
+        }
+
+        // --- Uppdatera dimensioner, kontrollera 250mm-gränsen och beräkna pris ---
+        function updateDimensionsAndPrice() {
+            if (!currentMesh) return;
+
+            const scale = state.unitScale;
+            currentMesh.scale.set(scale, scale, scale);
+
+            // Återcentrera efter ev. rotation/skalning så modellen alltid ligger i mitten (0,0,0)
+            currentMesh.geometry.computeBoundingBox();
+            const bbox = currentMesh.geometry.boundingBox;
+
+            const sizeX = (bbox.max.x - bbox.min.x) * scale;
+            const sizeY = (bbox.max.y - bbox.min.y) * scale;
+            const sizeZ = (bbox.max.z - bbox.min.z) * scale;
+
+            state.dimsMm = { x: sizeX, y: sizeY, z: sizeZ };
+
+            // Kontrollera om modellen får plats i 250 x 250 x 250 mm kuben
+            const exceeds = sizeX > BUILD_VOLUME_MM || sizeY > BUILD_VOLUME_MM || sizeZ > BUILD_VOLUME_MM;
+            state.exceedsCube = exceeds;
+
+            if (exceeds) {
+                buildCubeLines.material.color.setHex(0xDC2626);
+                sizeWarningEl.classList.remove('hidden');
+                cubeStatusBadge.textContent = 'VARNING: ÖVERSKRIDER 250 MM!';
+                cubeStatusBadge.className = 'bg-red-600 text-white font-mono text-xs font-bold px-2 py-0.5 uppercase';
+            } else {
+                buildCubeLines.material.color.setHex(0x111111);
+                sizeWarningEl.classList.add('hidden');
+                cubeStatusBadge.textContent = 'Kub: 250 × 250 × 250 mm (OK)';
+                cubeStatusBadge.className = 'bg-uni-orange text-uni-black font-mono text-xs font-bold px-2 py-0.5 uppercase';
+            }
+
+            // Skalad volym (cm³) och ytarea (cm²)
+            const volumeCm3 = (state.rawVolumeMm3 * Math.pow(scale, 3)) / 1000.0;
+            const areaCm2 = (state.rawAreaMm2 * Math.pow(scale, 2)) / 100.0;
+
+            // Viktberäkning: Skal (ytarea * 0.12 cm väggtjocklek) + inre volym * infill%
+            const matInfo = MATERIALS[state.material];
+            const shellVolumeCm3 = Math.min(volumeCm3, areaCm2 * 0.12);
+            const interiorVolumeCm3 = Math.max(0, volumeCm3 - shellVolumeCm3);
+            const effectivePlasticCm3 = shellVolumeCm3 + interiorVolumeCm3 * (state.infillPercent / 100.0);
+            const weightGrams = Math.max(1, effectivePlasticCm3 * matInfo.density);
+
+            // Prisformel:
+            // Tar hänsyn till effektiv volym, ytarea (supports/komplexitet), materialpris, lagerhöjd och antal
+            const infillFactor = 0.65 + (state.infillPercent / 100.0) * 0.75;
+            const surfaceComplexityCost = areaCm2 * 0.08;
+            const singlePartPrintCost = ((volumeCm3 * matInfo.pricePerCm3 * infillFactor) + surfaceComplexityCost) * state.layerMultiplier;
+
+            // Mängdrabatt vid fler än 5 resp. 10 st
+            let qtyDiscount = 1.0;
+            if (state.quantity >= 10) {
+                qtyDiscount = 0.85; // 15% rabatt
+                discountBadge.textContent = '-15% Mängdrabatt';
+                discountBadge.classList.remove('hidden');
+            } else if (state.quantity >= 5) {
+                qtyDiscount = 0.92; // 8% rabatt
+                discountBadge.textContent = '-8% Mängdrabatt';
+                discountBadge.classList.remove('hidden');
+            } else {
+                discountBadge.classList.add('hidden');
+            }
+
+            const totalMaterialAndMachine = singlePartPrintCost * state.quantity * qtyDiscount;
+            const totalInclVat = Math.max(50, BASE_START_FEE + totalMaterialAndMachine);
+            const totalExclVat = totalInclVat / 1.25;
+            const vatAmount = totalInclVat - totalExclVat;
+            const perUnitInclVat = totalInclVat / state.quantity;
+
+            // Uppdatera UI-texter på svenska
+            const dimsFormatted = `${sizeX.toFixed(1)} × ${sizeZ.toFixed(1)} × ${sizeY.toFixed(1)}`;
+            statDims.textContent = dimsFormatted;
+            previewDimsPill.textContent = `Modell: ${dimsFormatted} mm (i mitten)`;
+            statVol.textContent = `${volumeCm3.toFixed(2)} cm³`;
+            statArea.textContent = `${areaCm2.toFixed(1)} cm²`;
+            statWeight.textContent = `${ Math.round(weightGrams)} g`;
+
+            quoteBase.textContent = formatSEK(BASE_START_FEE);
+            quoteQtyLabel.textContent = `${state.quantity} st`;
+            quoteMaterial.textContent = formatSEK(totalInclVat - BASE_START_FEE);
+            quoteExVat.textContent = formatSEK(totalExclVat);
+            quoteVat.textContent = formatSEK(vatAmount);
+            quoteTotal.textContent = `${Math.round(totalInclVat)} kr`;
+            quotePerUnit.textContent = `${formatSEK(perUnitInclVat)} / st`;
+        }
+
+        function formatSEK(amount) {
+            return amount.toLocaleString('sv-SE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kr';
+        }
+
+        // --- Demomodeller (så man direkt ser en modell centrerad i 250mm-kuben) ---
+        function loadProceduralBracketDemo() {
+            // Skapa ett mekaniskt L-fäste / monteringsfäste (ca 85 x 60 x 55 mm)
+            const shape = new THREE.Shape();
+            shape.moveTo(0, 0);
+            shape.lineTo(85, 0);
+            shape.lineTo(85, 14);
+            shape.lineTo(18, 14);
+            shape.lineTo(18, 60);
+            shape.lineTo(0, 60);
+            shape.closePath();
+
+            const extrudeSettings = {
+                steps: 1,
+                depth: 50,
+                bevelEnabled: true,
+                bevelThickness: 2,
+                bevelSize: 2,
+                bevelSegments: 2
+            };
+
+            const geo = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            const nonIndexedGeo = geo.toNonIndexed();
+            setModelGeometry(nonIndexedGeo, 'Monteringsfäste_Demo.stl');
+            focusCameraOnCube();
+        }
+
+        function loadProceduralTestCubeDemo() {
+            const geo = new THREE.BoxGeometry(60, 60, 60).toNonIndexed();
+            setModelGeometry(geo, 'Kalibreringskub_60mm.stl');
+            focusCameraOnCube();
+        }
+
+        // --- Kameravyer ---
+        function focusCameraOnCube() {
+            controls.target.set(0, 0, 0);
+            camera.position.set(340, 250, 370);
+            controls.update();
+        }
+
+        function focusCameraOnModel() {
+            if (!currentMesh) return;
+            currentMesh.geometry.computeBoundingSphere();
+            const radius = Math.max(30, currentMesh.geometry.boundingSphere.radius * state.unitScale);
+            controls.target.set(0, 0, 0);
+            camera.position.set(radius * 1.9, radius * 1.4, radius * 2.2);
+            controls.update();
+        }
+
+        // --- Filuppladdning (STL) ---
+        function processUploadedFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const loader = new THREE.STLLoader();
+                    let geometry = loader.parse(event.target.result);
+                    if (geometry.index) {
+                        geometry = geometry.toNonIndexed();
+                    }
+                    // Rotera från CAD Z-upp till Three.js Y-upp och centrera i 250mm-kuben
+                    geometry.rotateX(-Math.PI / 2);
+                    setModelGeometry(geometry, file.name);
+                } catch (err) {
+                    console.error(err);
+                    errorMsgEl.classList.remove('hidden');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                processUploadedFile(e.target.files[0]);
+            }
+        });
+
+        // Drag & Drop på dropzone
+        ['dragenter', 'dragover'].forEach(evtName => {
+            dropzone.addEventListener(evtName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.add('bg-orange-100');
+            });
+        });
+        ['dragleave', 'drop'].forEach(evtName => {
+            dropzone.addEventListener(evtName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropzone.classList.remove('bg-orange-100');
+            });
+        });
+        dropzone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            if (dt && dt.files && dt.files[0]) {
+                processUploadedFile(dt.files[0]);
+            }
+        });
+
+        // --- Rotationsknappar (roterar geometrin runt sin mittpunkt i 250mm-kuben) ---
+        document.getElementById('rot-x-btn').addEventListener('click', () => {
+            if (!currentMesh) return;
+            currentMesh.geometry.rotateX(Math.PI / 2);
+            currentMesh.geometry.center();
+            updateDimensionsAndPrice();
+        });
+        document.getElementById('rot-y-btn').addEventListener('click', () => {
+            if (!currentMesh) return;
+            currentMesh.geometry.rotateY(Math.PI / 2);
+            currentMesh.geometry.center();
+            updateDimensionsAndPrice();
+        });
+        document.getElementById('rot-z-btn').addEventListener('click', () => {
+            if (!currentMesh) return;
+            currentMesh.geometry.rotateZ(Math.PI / 2);
+            currentMesh.geometry.center();
+            updateDimensionsAndPrice();
+        });
+
+        // --- Vy-knappar i 3D-fönstret ---
+        document.getElementById('view-cube-btn').addEventListener('click', focusCameraOnCube);
+        document.getElementById('view-model-btn').addEventListener('click', focusCameraOnModel);
+        document.getElementById('toggle-wireframe-btn').addEventListener('click', (e) => {
+            state.wireframe = !state.wireframe;
+            if (currentMesh) {
+                currentMesh.material.wireframe = state.wireframe;
+            }
+            e.currentTarget.classList.toggle('bg-uni-orange', state.wireframe);
+            e.currentTarget.classList.toggle('bg-white', !state.wireframe);
+        });
+
+        // Demoknappar
+        document.getElementById('load-bracket-btn').addEventListener('click', loadProceduralBracketDemo);
+        document.getElementById('header-demo-btn').addEventListener('click', loadProceduralBracketDemo);
+        document.getElementById('load-gear-btn').addEventListener('click', loadProceduralTestCubeDemo);
+
+        // --- Materialknappar ---
+        document.querySelectorAll('.mat-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.material = btn.getAttribute('data-mat');
+                document.querySelectorAll('.mat-btn').forEach(b => {
+                    b.classList.remove('bg-uni-orange');
+                    b.classList.add('bg-uni-bg');
+                });
+                btn.classList.remove('bg-uni-bg');
+                btn.classList.add('bg-uni-orange');
+                updateDimensionsAndPrice();
+            });
+        });
+
+        // --- Färgknappar ---
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.colorHex = btn.getAttribute('data-color');
+                state.colorName = btn.getAttribute('data-name');
+                document.getElementById('selected-color-name').textContent = state.colorName;
+
+                document.querySelectorAll('.color-btn').forEach(b => {
+                    b.classList.remove('ring-2', 'ring-offset-2', 'ring-uni-black');
+                });
+                btn.classList.add('ring-2', 'ring-offset-2', 'ring-uni-black');
+
+                if (currentMesh) {
+                    currentMesh.material.color.set(state.colorHex);
+                }
+            });
+        });
+
+        // --- Infill, Lagerhöjd, Enhet & Antal ---
+        infillSlider.addEventListener('input', (e) => {
+            state.infillPercent = parseInt(e.target.value, 10);
+            let desc = 'Standard';
+            if (state.infillPercent <= 15) desc = 'Lättvikt';
+            else if (state.infillPercent >= 80) desc = 'Solid/Massiv';
+            else if (state.infillPercent >= 40) desc = 'Förstärkt';
+            infillLabel.textContent = `${state.infillPercent}% (${desc})`;
+            updateDimensionsAndPrice();
+        });
+
+        layerSelect.addEventListener('change', (e) => {
+            state.layerMultiplier = parseFloat(e.target.value);
+            state.layerLabel = e.target.options[e.target.selectedIndex].text;
+            updateDimensionsAndPrice();
+        });
+
+        unitSelect.addEventListener('change', (e) => {
+            state.unitScale = parseFloat(e.target.value);
+            updateDimensionsAndPrice();
+        });
+
+        document.getElementById('qty-minus').addEventListener('click', () => {
+            state.quantity = Math.max(1, state.quantity - 1);
+            qtyInput.value = state.quantity;
+            updateDimensionsAndPrice();
+        });
+        document.getElementById('qty-plus').addEventListener('click', () => {
+            state.quantity = Math.min(500, state.quantity + 1);
+            qtyInput.value = state.quantity;
+            updateDimensionsAndPrice();
+        });
+        qtyInput.addEventListener('input', (e) => {
+            const val = parseInt(e.target.value, 10);
+            state.quantity = isNaN(val) || val < 1 ? 1 : Math.min(500, val);
+            updateDimensionsAndPrice();
+        });
+
+        // --- Beställningsmodal ---
+        const orderModal = document.getElementById('order-modal');
+        const orderSummaryBox = document.getElementById('order-summary-box');
+        const mailtoOrderLink = document.getElementById('mailto-order-link');
+        const copyFeedback = document.getElementById('copy-feedback');
+
+        openOrderModalBtn.addEventListener('click', () => {
+            const summaryText = [
+                `BESTÄLLNING — UNiPRiNT3D (Ide till Verklighet)`,
+                `--------------------------------------------`,
+                `Filnamn:      ${state.fileName}`,
+                `Dimensioner:  ${statDims.textContent} mm`,
+                `Volym / Yta:  ${statVol.textContent} / ${statArea.textContent}`,
+                `Beräknad vikt:${statWeight.textContent} per st`,
+                `Material:     ${MATERIALS[state.material].name}`,
+                `Färg:         ${state.colorName}`,
+                `Fyllnadsgrad: ${state.infillPercent}%`,
+                `Lagerhöjd:    ${state.layerLabel}`,
+                `Antal:        ${state.quantity} st`,
+                `--------------------------------------------`,
+                `TOTALPRIS:    ${quoteTotal.textContent} (inkl. 25% moms)`
+            ].join('\n');
+
+            orderSummaryBox.textContent = summaryText;
+
+            const subject = encodeURIComponent(`Beställning UNiPRiNT3D: ${state.fileName} (${state.quantity} st)`);
+            const body = encodeURIComponent(
+                `Hej UNiPRiNT3D!\n\nJag vill beställa följande 3D-utskrift:\n\n${summaryText}\n\n(Jag bifogar STL-filen i detta mejl)\n\nMitt namn:\nTelefonnummer (för Swish/leverans):`
+            );
+            mailtoOrderLink.href = `mailto:order@uniprint3d.se?subject=${subject}&body=${body}`;
+
+            copyFeedback.classList.add('hidden');
+            orderModal.classList.remove('hidden');
+            orderModal.classList.add('flex');
+        });
+
+        document.getElementById('close-modal-btn').addEventListener('click', () => {
+            orderModal.classList.add('hidden');
+            orderModal.classList.remove('flex');
+        });
+
+        orderModal.addEventListener('click', (e) => {
+            if (e.target === orderModal) {
+                orderModal.classList.add('hidden');
+                orderModal.classList.remove('flex');
+            }
+        });
+
+        document.getElementById('copy-order-btn').addEventListener('click', () => {
+            const textArea = document.createElement('textarea');
+            textArea.value = orderSummaryBox.textContent;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            copyFeedback.classList.remove('hidden');
+        });
+
+        // Starta 3D-vyn vid laddning
+        window.addEventListener('DOMContentLoaded', initThreeScene);
+    </script>
+</body>
+</html>
